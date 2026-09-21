@@ -1,37 +1,32 @@
-import main
-from globParams import registation
-from dataBase import query
-
-from maxapi import Bot, Dispatcher, F
-from maxapi.types import MessageCreated, Command, MessageCallback
+from maxapi.types import MessageCreated
 from maxapi.utils.inline_keyboard import InlineKeyboardBuilder
-from maxapi.types import LinkButton, CallbackButton
+from maxapi.types import CallbackButton
+
+from config import DEPARTMENTS
 
 
-@main.dp.message_created()
-async def logg_up_new_student(event: MessageCreated):
-    registation()
-    await event.message.answer(
-        text=f"Введите через пробел: ВУЗ, ФИО, группу, направление, год поступления, год выпуска, номер студенческого"
-    )
-
-
-
-@main.dp.message_created()
-async def menuSelectDepartment(event: MessageCreated, uni: str):
+async def menuSelectDepartment(event: MessageCreated, uni: dict) -> None:
     """
-        Меню для выбора отделения 
-        для запроса к нему от студента
-
+    Меню выбора кафедры/отделения для студента.
     """
     builder = InlineKeyboardBuilder()
 
-    for department in main.departments[uni]:
+    departments = DEPARTMENTS.get(uni["ВУЗ"], [])
+    if not departments:
+        await event.message.answer(
+            text=f"Для вашего ВУЗа ({uni['ВУЗ']}) список кафедр не задан."
+        )
+        return
+
+    for department in departments:
         builder.row(
-            CallbackButton(text=f"{department}", payload="workers_click")
+            CallbackButton(
+                text=department,
+                payload=f"dept_{department}"
+            )
         )
 
     await event.message.answer(
-        text='Выберите действие:',
+        text="Выберите кафедру:",
         attachments=[builder.as_markup()]
     )

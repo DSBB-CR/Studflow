@@ -1,12 +1,15 @@
-
-class Registration():
+class BotState:
     def __init__(self):
-        self.is_reg = False
+        self.registration_open = False
+        self.registration_role = None  # "student" | "worker" | None
 
-    def __call__(self):
-        self.is_reg = not self.is_reg
+    def start_registration(self, role: str) -> None:
+        self.registration_open = True
+        self.registration_role = role
 
-    def get_status(self) -> bool:
-        return self.is_reg
+    def stop_registration(self) -> None:
+        self.registration_open = False
+        self.registration_role = None
 
-registation = Registration()
+
+state = BotState()
