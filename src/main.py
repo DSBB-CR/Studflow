@@ -3,6 +3,7 @@ import logging
 
 import student
 from globParams import registation
+from dataBase import query
 
 from maxapi import Bot, Dispatcher, F
 from maxapi.types import MessageCreated, Command, MessageCallback
@@ -23,13 +24,18 @@ univer = {
     "ГУАП",
 }
 
+departments = {
+    "ИТМО" : ["Деканат", "Физра", "Отдел кадров"]
+}
+
+
 in_loggin = {
     "29602091" : "Student",
     "296020911": "Worker",
 }
 
 
-bot = Bot('ЦЦЦЦЦ')
+bot = Bot('f9LHodD0cOIaVSSANDgpCm5carq6CNNc4bfPcpGY5oV9G96n1nPuUibuiMiF_0fV5313aAReNCDGCtCWbdgx')
 dp = Dispatcher()
 
 
@@ -89,22 +95,30 @@ async def echo(event: MessageCreated) -> None:
     """
         Здесь происходит обработка вводимого пользователем текста
     """
+    for stud in query.dataBaseDEMO:
+        if stud['id'] == event.message.sender.user_id:
+            """
+                преход к работе с запросами студента к вузу
 
-    if registation.get_status() == True:
-        inputInformationNewUser = event.message.body.text.upper()
-        print(inputInformationNewUser)
-        registation()
-        #  зарегестрировали нового пользователя
-        # я просто делаю вывод но нужно добавлять его в БД
-        # и изменять его статус ссесии
-        return
-    
-    inputUser = event.message.body.text.upper()
-    for elem in univer:
-        if elem == inputUser:
-            await startMenu(event)
+            """
+            await student.menuSelectDepartment(event, stud["ВУЗ"])
             return
-    await event.message.answer(f"Университет: {inputUser} не найден проверьте корректность ввода или обратитесь в деканат для получения информации о регистрации университета в система Studflow")
+
+    # блок регистрации пользователя
+    if registation.get_status() == True:
+        inputInformationNewUser = event.message.body.text.upper().strip()
+        userInfo = inputInformationNewUser.split()
+        for uni in univer:
+            if userInfo[0] == uni:
+                userInfo.append(event.message.sender.user_id)
+                query.goToJson(userInfo)
+                registation()
+                return
+        await event.message.answer(f"Университет: {userInfo[0]} не найден проверьте корректность ввода или обратитесь в деканат для получения информации о регистрации университета в система Studflow")
+
+
+    await startMenu(event)
+    #await event.message.answer(f"Университет: {inputUser} не найден проверьте корректность ввода или обратитесь в деканат для получения информации о регистрации университета в система Studflow")
 
 
 async def main():
