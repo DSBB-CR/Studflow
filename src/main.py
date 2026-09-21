@@ -29,7 +29,7 @@ in_loggin = {
 }
 
 
-bot = Bot('f9LHodD0cOIaVSSANDgpCm5carq6CNNc4bfPcpGY5oV9G96n1nPuUibuiMiF_0fV5313aAReNCDGCtCWbdgx')
+bot = Bot('ЦЦЦЦЦ')
 dp = Dispatcher()
 
 
@@ -92,7 +92,8 @@ async def echo(event: MessageCreated) -> None:
 
     if registation.get_status() == True:
         inputInformationNewUser = event.message.body.text.upper()
-        print(inputInformationNewUser);
+        print(inputInformationNewUser)
+        registation()
         #  зарегестрировали нового пользователя
         # я просто делаю вывод но нужно добавлять его в БД
         # и изменять его статус ссесии
@@ -112,3 +113,4 @@ async def main():
 
 if __name__ == '__main__':
     asyncio.run(main())
+
