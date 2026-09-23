@@ -22,7 +22,7 @@ async def menuSelectDepartment(event: MessageCreated, uni: dict) -> None:
         builder.row(
             CallbackButton(
                 text=department,
-                payload=f"dept_{department}"
+                payload=f"newQuestFor_{department}"
             )
         )
     builder.row(

@@ -1,5 +1,6 @@
 import os
 from dotenv import load_dotenv
+from dataBase.query import find_user, dataBaseDEMO
 
 load_dotenv()
 
@@ -29,7 +30,7 @@ IN_LOGGIN = {
 QUERY_STUDENTS = [
     {
         "id_query" : 1111,
-        "Студент" : "Петр Петрович",
+        "Студент" : "Петр Петрович sdsdsds",
         "id_stud" : 29602091,
         "ВУЗ" : "ИТМО",
         "Кафедра" : "а",
@@ -47,11 +48,13 @@ QUERY_STUDENTS = [
 
 ANSWER_WORKERS = [
     {
+        "id_query" : 2222,
         "id_stud" : 29602091,
         "id_worker" : 29602091,
         "response" : "привет кушать в 13:00",
     },
     {
+        "id_query" : 1111,
         "id_stud" : 29602091,
         "id_worker" : 29602091,
         "response" : "привет кушать в 13:00",
@@ -81,3 +84,20 @@ def save_answer(id_query: int, id_stud: int, id_worker: int, response: str) -> N
         "id_worker": id_worker,
         "response": response,
     })
+
+def save_query(id_query: int, id_stud: int, department: str, query: str ) -> None:
+    stud = find_user(id_stud)
+    QUERY_STUDENTS.append({
+        "id_query" : id_query,
+        "id_stud" : id_stud,
+        "Кафедра" : department,
+        "Вопрос": query,
+        "ВУЗ" : stud['ВУЗ'],
+        "Студент" : stud["Фамилия"] + " " + stud["Имя"] + " " + stud["Отчество"]
+    })
+            
+
+def print_query() -> None:
+    for i in QUERY_STUDENTS:
+        print(i)
+
