@@ -6,8 +6,12 @@ from maxapi.types import MessageCreated, Command, MessageCallback
 from maxapi.types import CallbackButton
 from maxapi.utils.inline_keyboard import InlineKeyboardBuilder
 
+from aiogram import Bot, Dispatcher, types
+from aiogram.filters import CommandStart
+from gigachat import GigaChat
+
 from bot import dp
-from config import UNIVERSITIES, QUERY_STUDENTS
+from config import UNIVERSITIES, QUERY_STUDENTS, MAX_TOKEN, GIGACHAT_KEY
 from globParams import state
 from dataBase.query import goToJsonStudent, goToJsonWorker, find_user, dataBaseDEMO
 
@@ -18,9 +22,7 @@ import university
 logging.basicConfig(level=logging.INFO)
 
 
-bot = Bot(
-    "f9LHodD0cOIaVSSANDgpCm5carq6CNNc4bfPcpGY5oV9G96n1nPuUibuiMiF_0fV5313aAReNCDGCtCWbdgx"
-)
+bot = Bot(token=MAX_TOKEN)
 
 
 # ============================================================
@@ -183,6 +185,22 @@ async def echo(event: MessageCreated) -> None:
     # 3. Незнакомый пользователь — показываем стартовое меню
     await show_start_menu(event)
 
+# ============================================================
+# Обработчик текстовых сообщений (GigaChat)
+# ============================================================
+
+@dp.message()
+async def handle_message(message: types.Message):
+    # Инициализируем клиент GigaChat с вашим ключом из .env
+    with GigaChat(credentials=GIGACHAT_KEY, verify_ssl_certs=False) as giga:
+            # Передаем текст от пользователя (message.text) в нейросеть
+        response = giga.chat(message.text)
+
+            # Получаем сгенерированный текст из ответа
+        ai_answer = response.choices[0].message.content
+
+    # Бот отправляет ответ нейросети обратно пользователю
+    await message.answer(ai_answer)
 
 # ============================================================
 # Точка входа

@@ -1,3 +1,11 @@
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+MAX_TOKEN = os.getenv("MAX_TOKEN")
+GIGACHAT_KEY = os.getenv("GIGACHAT_KEY")
+
 UNIVERSITIES = {
     "СПБГТУ",
     "СПБГТИ(ТУ)",
