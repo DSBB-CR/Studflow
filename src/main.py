@@ -11,9 +11,18 @@ from aiogram.filters import CommandStart
 from gigachat import GigaChat
 
 from bot import dp
-from config import UNIVERSITIES, QUERY_STUDENTS, MAX_TOKEN, GIGACHAT_KEY
+
 from globParams import state
 from dataBase.query import goToJsonStudent, goToJsonWorker, find_user, dataBaseDEMO
+
+from config import (
+    UNIVERSITIES,
+    find_query_by_id,
+    save_answer,
+    QUERY_STUDENTS,
+    MAX_TOKEN,
+    GIGACHAT_KEY
+)
 
 import student
 import university
@@ -47,6 +56,23 @@ async def show_start_menu(event: MessageCreated) -> None:
         attachments=[build_start_menu().as_markup()],
     )
 
+async def notify_student(id_stud: int, q: dict, answer: str) -> None:
+    """
+    Отправляет студенту ответ работника вуза.
+    Если не получилось — просто логируем (студент может быть не в чате с ботом).
+    """
+    try:
+        await bot.send_message(
+            user_id=id_stud,
+            text=(
+                f"📬 Ответ на ваш вопрос №{q['id_query']}\n"
+                f"«{q['Вопрос']}»\n\n"
+                f"💬 {answer}"
+            ),
+        )
+    except Exception as e:
+        logging.warning(f"Не удалось отправить ответ студенту {id_stud}: {e}")
+
 
 # ============================================================
 # Callback-хендлеры главного меню
@@ -79,19 +105,77 @@ async def handle_workers_click(event: MessageCallback):
         )
     )
 
+@dp.message_callback(F.callback.payload == "student_view_answers")
+async def student_view_answers(event: MessageCallback):
+    user_id = event.callback.user.user_id
+    student_user = find_user(user_id)
+    if student_user is None or student_user["status"] != "student":
+        await event.message.answer(text="Вы не зарегистрированы как студент.")
+        return
+    await student.show_answers_for_student(event, student_user)
+
 # ============================================================
 # Callback-хендлеры работников вуза
 # ============================================================
 
 @dp.message_callback(F.callback.payload == "workers_view_questions")
 async def workers_view_questions(event: MessageCallback):
-    for query in QUERY_STUDENTS:
-        await event.message.answer(
-                text=(
-                    f'Вопрос: {query["Вопрос"]} от студента {query["Студент"]}'
-                )
-            )
+    user_id = event.callback.user.user_id
+    worker = find_user(user_id)
 
+    if worker is None or worker["status"] != "worker":
+        await event.message.answer(text="Вы не зарегистрированы как работник вуза.")
+        return
+
+    await university.show_queries_for_worker(event, worker)
+
+
+@dp.message_callback(F.callback.payload.startswith("answer_"))
+async def handle_answer_button(event: MessageCallback):
+    user_id = event.callback.user.user_id
+    worker = find_user(user_id)
+
+    if worker is None or worker["status"] != "worker":
+        await event.message.answer(text="Вы не зарегистрированы как работник вуза.")
+        return
+
+    # payload вида "answer_1111"
+    try:
+        id_query = int(event.callback.payload.split("_", 1)[1])
+    except (IndexError, ValueError):
+        await event.message.answer(text="Некорректный вопрос.")
+        return
+
+    q = find_query_by_id(id_query)
+    if q is None:
+        await event.message.answer(text="Вопрос не найден.")
+        return
+
+    # Проверяем, что вопрос действительно к кафедре работника
+    if q["ВУЗ"] != worker["ВУЗ"].upper() or q["Кафедра"] != worker["Кафедра"].lower():
+        await event.message.answer(text="Этот вопрос не к вашей кафедре.")
+        return
+
+    # Запоминаем, что работник сейчас отвечает на этот вопрос
+    state.start_answer(user_id, id_query)
+
+    await event.message.answer(
+        text=(
+            f"✍️ Введите ответ на вопрос №{id_query}:\n"
+            f"«{q['Вопрос']}»\n\n"
+            f"Для отмены введите /cancel"
+        )
+    )
+
+# -------- Отмена ответа --------
+@dp.message_created(Command("cancel"))
+async def cancel_command(event: MessageCreated):
+    user_id = event.message.sender.user_id
+    if state.get_session(user_id):
+        state.clear_session(user_id)
+        await event.message.answer(text="Действие отменено.")
+    else:
+        await event.message.answer(text="Нечего отменять.")
 
 # ============================================================
 # Логика регистрации
@@ -167,8 +251,40 @@ async def menu_command(event: MessageCreated) -> None:
 @dp.message_created(lambda m: m.message.body and m.message.body.text)
 async def echo(event: MessageCreated) -> None:
     user_id = event.message.sender.user_id
+    text = event.message.body.text.strip()
 
-    # 1. Идёт регистрация? Обрабатываем ввод.
+    # 0. Пользователь отвечает на вопрос студента
+    session = state.get_session(user_id)
+    if session and session.get("mode") == "answering":
+        worker = find_user(user_id)
+        if worker is None:
+            state.clear_session(user_id)
+            await show_start_menu(event)
+            return
+
+        id_query = session["id_query"]
+        q = find_query_by_id(id_query)
+        if q is None:
+            state.clear_session(user_id)
+            await event.message.answer(text="Вопрос не найден.")
+            return
+
+        # Сохраняем ответ
+        save_answer(
+            id_query=id_query,
+            id_stud=q["id_stud"],
+            id_worker=user_id,
+            response=text,
+        )
+
+        # Отправляем студенту ответ (если он есть в БД и это возможно)
+        await notify_student(q["id_stud"], q, text)
+
+        state.clear_session(user_id)
+        await event.message.answer(text="✅ Ответ отправлен студенту.")
+        return
+
+    # 1. Идёт регистрация?
     if state.registration_open:
         await handle_registration(event)
         return
@@ -182,8 +298,9 @@ async def echo(event: MessageCreated) -> None:
             await university.menuSelectWorker(event, user)
         return
 
-    # 3. Незнакомый пользователь — показываем стартовое меню
+    # 3. Незнакомый — стартовое меню
     await show_start_menu(event)
+
 
 # ============================================================
 # Обработчик текстовых сообщений (GigaChat)

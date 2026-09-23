@@ -7,7 +7,7 @@ MAX_TOKEN = os.getenv("MAX_TOKEN")
 GIGACHAT_KEY = os.getenv("GIGACHAT_KEY")
 
 UNIVERSITIES = {
-    "СПБГТУ",
+    "СПБГУ",
     "СПБГТИ(ТУ)",
     "ЛЭТИ",
     "ИТМО",
@@ -28,15 +28,56 @@ IN_LOGGIN = {
 
 QUERY_STUDENTS = [
     {
+        "id_query" : 1111,
         "Студент" : "Петр Петрович",
+        "id_stud" : 29602091,
         "ВУЗ" : "ИТМО",
         "Кафедра" : "а",
         "Вопрос" : "Здравствуйте который час?"
     },
     {
+        "id_query" : 2222,
         "Студент" : "Никита Опатыч",
+        "id_stud" : 29602091,
         "ВУЗ" : "ИТМО",
         "Кафедра" : "а",
         "Вопрос" : "Здравствуйте который час и когда кушать?"
     }
 ]
+
+ANSWER_WORKERS = [
+    {
+        "id_stud" : 29602091,
+        "id_worker" : 29602091,
+        "response" : "привет кушать в 13:00",
+    },
+    {
+        "id_stud" : 29602091,
+        "id_worker" : 29602091,
+        "response" : "привет кушать в 13:00",
+    },
+]
+
+
+def find_queries_for_worker(worker: dict) -> list:
+    """Возвращает вопросы, адресованные кафедре работника в его ВУЗе."""
+    return [
+        q for q in QUERY_STUDENTS
+        if q["ВУЗ"] == worker["ВУЗ"].upper() and q["Кафедра"] == str(worker["Кафедра"]).lower()
+    ]
+
+
+def find_query_by_id(id_query: int):
+    for q in QUERY_STUDENTS:
+        if q["id_query"] == id_query:
+            return q
+    return None
+
+
+def save_answer(id_query: int, id_stud: int, id_worker: int, response: str) -> None:
+    ANSWER_WORKERS.append({
+        "id_query": id_query,
+        "id_stud": id_stud,
+        "id_worker": id_worker,
+        "response": response,
+    })

@@ -58,6 +58,6 @@ def goToJsonWorker(workInfo) -> bool:
 def find_user(user_id):
     """Возвращает запись пользователя или None."""
     for user in dataBaseDEMO:
-        if user["id"] == user_id:
+        if str(user["id"]) == str(user_id):
             return user
     return None
