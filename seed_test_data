@@ -1,0 +1,194 @@
+/**
+ * seed_test_data.js
+ * Наполняет уже созданную базу studflow тестовыми данными
+ * (сценарий взят из скриншотов бота: ИТМО, студент Максим Попов,
+ * сотрудник Андрей Гайков, вопросы к деканату и кафедре "СА").
+ *
+ * Перед запуском база должна быть создана скриптом create_mongo.js.
+ *
+ * Запуск:
+ *   mongosh "mongodb://localhost:27017/studflow" seed_test_data.js
+ */
+
+db = db.getSiblingDB("studflow");
+
+// ---------- вузы ----------
+db.universities.insertMany([
+  {
+    short_name: "ИТМО",
+    full_name: "Университет ИТМО",
+    aliases: ["итмо", "itmo"],
+    departments: ["Деканат", "Физра", "Отдел кадров", "СА"],
+    is_active: true,
+    created_at: new Date(),
+  },
+  {
+    short_name: "СПбГУ",
+    full_name: "Санкт-Петербургский государственный университет",
+    aliases: ["спбгу", "spbu"],
+    departments: ["Деканат", "Отдел кадров"],
+    is_active: true,
+    created_at: new Date(),
+  },
+]);
+
+// ---------- пользователи ----------
+db.users.insertMany([
+  {
+    chat_id: NumberLong(451119570),
+    user_id: NumberLong(29602091),
+    role: "student",
+    last_name: "Попов",
+    first_name: "Максим",
+    patronymic: "Вячеславович",
+    university: "ИТМО",
+    student_profile: {
+      group: "123",
+      direction: "09.03.67",
+      admission_year: NumberInt(2067),
+      graduation_year: NumberInt(2071),
+      student_number: "288267",
+    },
+    staff_profile: null,
+    created_at: new Date(),
+    updated_at: new Date(),
+  },
+  {
+    chat_id: NumberLong(777000111),
+    user_id: NumberLong(888000222),
+    role: "staff",
+    last_name: "Гайков",
+    first_name: "Андрей",
+    patronymic: "Владимирович",
+    university: "ИТМО",
+    student_profile: null,
+    staff_profile: { department: "СА", position: "Доцент" },
+    created_at: new Date(),
+    updated_at: new Date(),
+  },
+  {
+    chat_id: NumberLong(222333444),
+    user_id: NumberLong(555666777),
+    role: "student",
+    last_name: "Петрович",
+    first_name: "Петр",
+    patronymic: "sdsdsds",
+    university: "ИТМО",
+    student_profile: {
+      group: "101",
+      direction: "09.03.01",
+      admission_year: NumberInt(2023),
+      graduation_year: NumberInt(2027),
+      student_number: "111222",
+    },
+    staff_profile: null,
+    created_at: new Date(),
+    updated_at: new Date(),
+  },
+]);
+
+// ---------- обращения (вопросы) ----------
+db.queries.insertMany([
+  {
+    query_id: NumberLong(1111),
+    student: {
+      user_id: NumberLong(29602091),
+      chat_id: NumberLong(451119570),
+      full_name: "Петр Петрович sdsdsds",
+      university: "ИТМО",
+    },
+    department: "a",
+    question: "Здравствуйте который час?",
+    status: "pending",
+    answer: null,
+    created_at: new Date(),
+    updated_at: new Date(),
+  },
+  {
+    query_id: NumberLong(2222),
+    student: {
+      user_id: NumberLong(29602091),
+      chat_id: NumberLong(451119570),
+      full_name: "Никита Опатыч",
+      university: "ИТМО",
+    },
+    department: "a",
+    question: "Здравствуйте который час и когда кушать?",
+    status: "answered",
+    answer: {
+      text: "баааааааааааааааа",
+      answered_by: NumberLong(888000222),
+      answered_by_name: "Андрей Гайков",
+      answered_at: new Date(),
+    },
+    created_at: new Date(),
+    updated_at: new Date(),
+  },
+  {
+    query_id: NumberLong(51479321),
+    student: {
+      user_id: NumberLong(29602091),
+      chat_id: NumberLong(451119570),
+      full_name: "Максим Попов Вячеславович",
+      university: "ИТМО",
+    },
+    department: "Деканат",
+    question: "Как добраться до Гайкова?",
+    status: "pending",
+    answer: null,
+    created_at: new Date(),
+    updated_at: new Date(),
+  },
+]);
+
+// ---------- состояния диалога (FSM) ----------
+db.dialog_states.insertMany([
+  {
+    chat_id: NumberLong(451119570),
+    user_id: NumberLong(29602091),
+    state: "AWAITING_QUERY_TEXT",
+    context: { department: "Деканат" },
+    updated_at: new Date(),
+  },
+  {
+    chat_id: NumberLong(777000111),
+    user_id: NumberLong(888000222),
+    state: "IDLE",
+    context: {},
+    updated_at: new Date(),
+  },
+]);
+
+// ---------- лог событий ----------
+db.event_log.insertMany([
+  {
+    router_id: "4376425008",
+    event_type: "message_created",
+    chat_id: NumberLong(451119570),
+    user_id: NumberLong(29602091),
+    raw_payload: { text: "/start" },
+    created_at: new Date(),
+  },
+  {
+    router_id: "4376425008",
+    event_type: "message_callback",
+    chat_id: NumberLong(451119570),
+    user_id: NumberLong(29602091),
+    raw_payload: { callback_data: "role_student" },
+    created_at: new Date(),
+  },
+]);
+
+// ---------- счётчик ----------
+db.counters.updateOne(
+  { _id: "query_id" },
+  { $max: { seq: 51479321 } }, // чтобы следующий id не пересёкся с тестовыми
+  { upsert: true }
+);
+
+print("Тестовые данные загружены:");
+print("  universities: " + db.universities.countDocuments());
+print("  users: " + db.users.countDocuments());
+print("  queries: " + db.queries.countDocuments());
+print("  dialog_states: " + db.dialog_states.countDocuments());
+print("  event_log: " + db.event_log.countDocuments());
