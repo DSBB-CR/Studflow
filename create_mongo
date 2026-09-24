@@ -226,3 +226,5 @@ db.event_log.createIndex(
 );
 
 print("✔ event_log создана (TTL 48ч)");
+
+print(`Коллекции созданы: universities, users, counters, queries, dialog_states, event_log`);
