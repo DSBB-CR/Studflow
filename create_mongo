@@ -157,3 +157,33 @@ db.queries.createIndex(
 );
 
 print("✔ queries создана");
+
+// 5. dialog_states — состояние FSM-диалога по каждому чату
+db.dialog_states.drop();
+db.createCollection("dialog_states", {
+  validator: {
+    $jsonSchema: {
+      bsonType: "object",
+      required: ["chat_id", "state", "updated_at"],
+      properties: {
+        chat_id: { bsonType: "long" },
+        user_id: { bsonType: ["long", "null"] },
+        state: {
+          enum: [
+            "IDLE",
+            "AWAITING_ROLE",
+            "AWAITING_STUDENT_REGISTRATION",
+            "AWAITING_STAFF_REGISTRATION",
+            "AWAITING_DEPARTMENT",
+            "AWAITING_QUERY_TEXT",
+            "AWAITING_ANSWER_TEXT"
+          ]
+        },
+        context: { bsonType: "object" },
+        updated_at: { bsonType: "date" }
+      }
+    }
+  },
+  validationLevel: "moderate",
+  validationAction: "error"
+});
