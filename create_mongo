@@ -47,3 +47,55 @@ db.createCollection("universities", {
 
 db.universities.createIndex({ short_name: 1 }, { unique: true, name: "uniq_short_name" });
 db.universities.createIndex({ aliases: 1 }, { name: "idx_aliases" });
+
+// 2. users — студенты и сотрудники (единая коллекция с дискриминатором role)
+db.users.drop();
+db.createCollection("users", {
+  validator: {
+    $jsonSchema: {
+      bsonType: "object",
+      required: ["chat_id", "user_id", "role", "university"],
+      properties: {
+        chat_id: { bsonType: "long" },
+        user_id: { bsonType: "long" },
+        role: { enum: ["student", "staff"] },
+        last_name: { bsonType: "string" },
+        first_name: { bsonType: "string" },
+        patronymic: { bsonType: ["string", "null"] },
+        university: { bsonType: "string" },
+        student_profile: {
+          bsonType: ["object", "null"],
+          properties: {
+            group: { bsonType: "string" },
+            direction: { bsonType: "string" },
+            admission_year: { bsonType: ["int", "long"] },
+            graduation_year: { bsonType: ["int", "long"] },
+            student_number: { bsonType: "string" }
+          }
+        },
+        staff_profile: {
+          bsonType: ["object", "null"],
+          properties: {
+            department: { bsonType: "string" },
+            position: { bsonType: "string" }
+          }
+        },
+        created_at: { bsonType: "date" },
+        updated_at: { bsonType: "date" }
+      }
+    }
+  },
+  validationLevel: "moderate",
+  validationAction: "error"
+});
+
+db.users.createIndex({ chat_id: 1 }, { unique: true, name: "uniq_chat_id" });
+db.users.createIndex({ user_id: 1 }, { name: "idx_user_id" });
+db.users.createIndex(
+  { role: 1, university: 1, "staff_profile.department": 1 },
+  { name: "idx_staff_department" }
+);
+db.users.createIndex({ role: 1, university: 1 }, { name: "idx_role_university" });
+
+print("✔ users создана");
+
