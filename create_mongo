@@ -11,3 +11,8 @@
  * индексы создаются через createIndexes (createIndex с игнорированием,
  * если уже существуют).
  */
+
+const dbName = "studflow";
+db = db.getSiblingDB(dbName);
+
+print(`\n=== Инициализация базы "${dbName}" ===\n`);
