@@ -145,3 +145,15 @@ db.createCollection("queries", {
   validationLevel: "moderate",
   validationAction: "error"
 });
+
+db.queries.createIndex({ query_id: 1 }, { unique: true, name: "uniq_query_id" });
+db.queries.createIndex(
+  { "student.university": 1, department: 1, status: 1 },
+  { name: "idx_department_inbox" }
+);
+db.queries.createIndex(
+  { "student.user_id": 1, status: 1 },
+  { name: "idx_my_answers" }
+);
+
+print("✔ queries создана");
