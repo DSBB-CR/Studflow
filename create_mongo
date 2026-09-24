@@ -187,3 +187,10 @@ db.createCollection("dialog_states", {
   validationLevel: "moderate",
   validationAction: "error"
 });
+
+db.dialog_states.createIndex({ chat_id: 1 }, { unique: true, name: "uniq_chat_id" });
+// TTL: автоочистка "зависших" диалогов через 24 часа неактивности
+db.dialog_states.createIndex(
+  { updated_at: 1 },
+  { expireAfterSeconds: 86400, name: "ttl_updated_at" }
+);
