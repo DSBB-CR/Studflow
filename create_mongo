@@ -99,3 +99,7 @@ db.users.createIndex({ role: 1, university: 1 }, { name: "idx_role_university" }
 
 print("✔ users создана");
 
+// 3. counters — генератор коротких числовых id для обращений
+db.counters.drop();
+db.createCollection("counters");
+db.counters.insertOne({ _id: "query_id", seq: 1000 });
