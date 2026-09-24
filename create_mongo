@@ -16,3 +16,34 @@ const dbName = "studflow";
 db = db.getSiblingDB(dbName);
 
 print(`\n=== Инициализация базы "${dbName}" ===\n`);
+
+// 1. universities — справочник вузов
+db.universities.drop();
+db.createCollection("universities", {
+  validator: {
+    $jsonSchema: {
+      bsonType: "object",
+      required: ["short_name", "full_name", "is_active"],
+      properties: {
+        short_name: { bsonType: "string", description: "Короткое название, напр. ИТМО" },
+        full_name: { bsonType: "string" },
+        aliases: {
+          bsonType: "array",
+          items: { bsonType: "string" },
+          description: "Варианты написания в нижнем регистре для поиска"
+        },
+        departments: {
+          bsonType: "array",
+          items: { bsonType: "string" }
+        },
+        is_active: { bsonType: "bool" },
+        created_at: { bsonType: "date" }
+      }
+    }
+  },
+  validationLevel: "moderate",
+  validationAction: "error"
+});
+
+db.universities.createIndex({ short_name: 1 }, { unique: true, name: "uniq_short_name" });
+db.universities.createIndex({ aliases: 1 }, { name: "idx_aliases" });
