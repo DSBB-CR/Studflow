@@ -194,3 +194,26 @@ db.dialog_states.createIndex(
   { updated_at: 1 },
   { expireAfterSeconds: 86400, name: "ttl_updated_at" }
 );
+
+print("✔ dialog_states создана (TTL 24ч)");
+
+// 6. event_log — лог событий диспетчера (message_created / message_callback)
+db.event_log.drop();
+db.createCollection("event_log", {
+  validator: {
+    $jsonSchema: {
+      bsonType: "object",
+      required: ["event_type", "chat_id", "created_at"],
+      properties: {
+        router_id: { bsonType: "string" },
+        event_type: { enum: ["message_created", "message_callback"] },
+        chat_id: { bsonType: "long" },
+        user_id: { bsonType: ["long", "null"] },
+        raw_payload: { bsonType: "object" },
+        created_at: { bsonType: "date" }
+      }
+    }
+  },
+  validationLevel: "moderate",
+  validationAction: "warn" // не блокируем запись логов даже при неполных данных
+});
