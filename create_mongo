@@ -1,0 +1,13 @@
+/**
+ * init_studflow_db.js
+ * Скрипт создания базы данных MongoDB для Studflow-бота (MAX/Telegram).
+ *
+ * Запуск:
+ *   mongosh "mongodb://localhost:27017" init_studflow_db.js
+ * или, если нужна конкретная БД/хост:
+ *   mongosh "mongodb://user:pass@host:27017/studflow" init_studflow_db.js
+ *
+ * Скрипт идемпотентен: коллекции с валидацией пересоздаются (drop+create),
+ * индексы создаются через createIndexes (createIndex с игнорированием,
+ * если уже существуют).
+ */
