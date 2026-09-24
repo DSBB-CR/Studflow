@@ -103,3 +103,45 @@ print("✔ users создана");
 db.counters.drop();
 db.createCollection("counters");
 db.counters.insertOne({ _id: "query_id", seq: 1000 });
+
+print("✔ counters создана (стартовый seq=1000)");
+
+// 4. queries — обращения студентов к кафедрам
+db.queries.drop();
+db.createCollection("queries", {
+  validator: {
+    $jsonSchema: {
+      bsonType: "object",
+      required: ["query_id", "student", "department", "question", "status"],
+      properties: {
+        query_id: { bsonType: ["int", "long"] },
+        student: {
+          bsonType: "object",
+          required: ["user_id", "chat_id"],
+          properties: {
+            user_id: { bsonType: "long" },
+            chat_id: { bsonType: "long" },
+            full_name: { bsonType: "string" },
+            university: { bsonType: "string" }
+          }
+        },
+        department: { bsonType: "string" },
+        question: { bsonType: "string" },
+        status: { enum: ["pending", "answered", "cancelled"] },
+        answer: {
+          bsonType: ["object", "null"],
+          properties: {
+            text: { bsonType: ["string", "null"] },
+            answered_by: { bsonType: ["long", "null"] },
+            answered_by_name: { bsonType: ["string", "null"] },
+            answered_at: { bsonType: ["date", "null"] }
+          }
+        },
+        created_at: { bsonType: "date" },
+        updated_at: { bsonType: "date" }
+      }
+    }
+  },
+  validationLevel: "moderate",
+  validationAction: "error"
+});
