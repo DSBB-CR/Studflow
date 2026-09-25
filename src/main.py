@@ -1,19 +1,21 @@
+# std
 import asyncio
 import logging
+from random import randint
 
+# maxapi import
 from maxapi import Bot, F
 from maxapi.types import MessageCreated, Command, MessageCallback
 from maxapi.types import CallbackButton
 from maxapi.utils.inline_keyboard import InlineKeyboardBuilder
-from random import randint
 
+# gigachat import forewer
 from gigachat import GigaChat
 
+# local import func and constants
 from bot import dp
-
 from globParams import state
 from dataBase.query import goToJsonStudent, goToJsonWorker, find_user, dataBaseDEMO
-
 from config import (
     UNIVERSITIES,
     find_query_by_id,
@@ -25,6 +27,7 @@ from config import (
     GIGACHAT_KEY
 )
 
+# local import file
 import student
 import university
 
