@@ -1,0 +1,4 @@
+maxapi
+python-dotenv
+gigachat
+pymongo

@@ -1,7 +1,11 @@
 # std
 import asyncio
 import logging
-from random import randint
+from pathlib import Path
+
+# dotenv — на случай, если config ещё не загрузил
+from dotenv import load_dotenv
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 # maxapi import
 from maxapi import Bot, F
@@ -9,22 +13,25 @@ from maxapi.types import MessageCreated, Command, MessageCallback
 from maxapi.types import CallbackButton
 from maxapi.utils.inline_keyboard import InlineKeyboardBuilder
 
-# gigachat import forewer
-from gigachat import GigaChat
-
 # local import func and constants
 from bot import dp
 from globParams import state
-from dataBase.query import goToJsonStudent, goToJsonWorker, find_user, dataBaseDEMO
+
 from config import (
     UNIVERSITIES,
+    MAX_TOKEN,
+)
+
+from dataBase.query import (
+    find_user,
+    goToJsonStudent,
+    goToJsonWorker,
     find_query_by_id,
+    find_queries_for_worker,
     save_answer,
     save_query,
+    next_query_id,
     print_query,
-    QUERY_STUDENTS,
-    MAX_TOKEN,
-    GIGACHAT_KEY
 )
 
 # local import file
@@ -33,7 +40,6 @@ import university
 
 
 logging.basicConfig(level=logging.INFO)
-
 
 bot = Bot(token=MAX_TOKEN)
 
@@ -59,6 +65,7 @@ async def show_start_menu(event: MessageCreated) -> None:
         text="Выберите действие:",
         attachments=[build_start_menu().as_markup()],
     )
+
 
 async def notify_student(id_stud: int, q: dict, answer: str) -> None:
     """
@@ -93,7 +100,7 @@ async def handle_stud_click(event: MessageCallback):
     await event.message.answer(
         text=(
             "Регистрация студента.\n"
-            "Введите через пробел: ВУЗ, ФИО, группу, направление, "
+            "Введите через пробел: ВУЗ, ФИО (Фамилия Имя Отчество), группу, направление, "
             "год поступления, год выпуска, номер студенческого"
         )
     )
@@ -105,9 +112,10 @@ async def handle_workers_click(event: MessageCallback):
     await event.message.answer(
         text=(
             "Регистрация работника университета.\n"
-            "Введите через пробел: ВУЗ, ФИО, кафедру, должность"
+            "Введите через пробел: ВУЗ, ФИО (Фамилия Имя Отчество), кафедру, должность"
         )
     )
+
 
 @dp.message_callback(F.callback.payload == "student_view_answers")
 async def student_view_answers(event: MessageCallback):
@@ -117,6 +125,7 @@ async def student_view_answers(event: MessageCallback):
         await event.message.answer(text="Вы не зарегистрированы как студент.")
         return
     await student.show_answers_for_student(event, student_user)
+
 
 # ============================================================
 # Callback-хендлеры работников вуза
@@ -156,7 +165,8 @@ async def handle_answer_button(event: MessageCallback):
         return
 
     # Проверяем, что вопрос действительно к кафедре работника
-    if q["ВУЗ"] != worker["ВУЗ"].upper() or q["Кафедра"] != worker["Кафедра"].lower():
+    if (str(q["ВУЗ"]).upper() != str(worker["ВУЗ"]).upper()
+            or str(q["Кафедра"]).lower() != str(worker["Кафедра"]).lower()):
         await event.message.answer(text="Этот вопрос не к вашей кафедре.")
         return
 
@@ -170,6 +180,7 @@ async def handle_answer_button(event: MessageCallback):
             f"Для отмены введите /cancel"
         )
     )
+
 
 # -------- Отмена ответа --------
 @dp.message_created(Command("cancel"))
@@ -186,7 +197,6 @@ async def cancelAnswer_command(event: MessageCreated):
 # Обработка ввода вопроса студента
 # ============================================================
 
-
 @dp.message_callback(F.callback.payload.startswith("newQuestFor_"))
 async def handle_quests_button(event: MessageCallback):
     user_id = event.callback.user.user_id
@@ -196,8 +206,9 @@ async def handle_quests_button(event: MessageCallback):
         await event.message.answer(text="Вы не зарегистрированы как студент вуза.")
         return
 
-    id_query = randint(0, 100_000_000)
-    state.start_asking(user_id, id_query, event.callback.payload.split("_", 1)[1])
+    id_query = next_query_id()  # атомарный счётчик из Mongo
+    department = event.callback.payload.split("_", 1)[1]
+    state.start_asking(user_id, id_query, department)
 
     await event.message.answer(
         text=(
@@ -205,6 +216,7 @@ async def handle_quests_button(event: MessageCallback):
             f"Для отмены введите /cancel_query"
         )
     )
+
 
 # -------- Отмена вопроса --------
 @dp.message_created(Command("cancel_query"))
@@ -215,6 +227,7 @@ async def cancelQuery_command(event: MessageCreated):
         await event.message.answer(text="Действие отменено.")
     else:
         await event.message.answer(text="Нечего отменять.")
+
 
 # ============================================================
 # Логика регистрации
@@ -257,16 +270,18 @@ async def handle_registration(event: MessageCreated) -> None:
         return
 
     state.stop_registration()
-    for elem in dataBaseDEMO:
-        #print(elem)
-        if int(elem['id']) == int(user_id):
-            await event.message.answer(text="Регистрация успешна!")
-            if elem['status'] == "worker":
-                await university.menuSelectWorker(event, elem)
-            else:
-                await student.menuSelectDepartment(event, elem)
 
-            return
+    # Пользователь только что записан в Mongo — читаем его оттуда же
+    user = find_user(user_id)
+    if user is None:
+        await event.message.answer(text="Не удалось сохранить регистрацию.")
+        return
+
+    await event.message.answer(text="Регистрация успешна!")
+    if user["status"] == "worker":
+        await university.menuSelectWorker(event, user)
+    else:
+        await student.menuSelectDepartment(event, user)
 
 
 # ============================================================
@@ -308,7 +323,7 @@ async def echo(event: MessageCreated) -> None:
             await event.message.answer(text="Вопрос не найден.")
             return
 
-        # Сохраняем ответ
+        # Сохраняем ответ в Mongo
         save_answer(
             id_query=id_query,
             id_stud=q["id_stud"],
@@ -316,14 +331,14 @@ async def echo(event: MessageCreated) -> None:
             response=text,
         )
 
-        # Отправляем студенту ответ (если он есть в БД и это возможно)
+        # Отправляем студенту ответ
         await notify_student(q["id_stud"], q, text)
 
         state.clear_session(user_id)
         await event.message.answer(text="✅ Ответ отправлен студенту.")
         return
 
-    # 1. Студен задает вопрос
+    # 1. Студент задаёт вопрос
     session = state.get_session(user_id)
     if session and session.get("mode") == "asking":
         stud = find_user(user_id)
@@ -332,20 +347,16 @@ async def echo(event: MessageCreated) -> None:
             await show_start_menu(event)
             return
 
-        
         id_ask = session.get("id_ask")
-        # Сохраняем Вопрос
         save_query(
             id_query=id_ask,
             id_stud=user_id,
             department=session.get("depart"),
             query=text,
         )
-        
-        # Отправляем вопрос студента (если это возможно)
 
         state.clear_session(user_id)
-        print_query()
+        print_query()  # отладочный вывод (можно убрать в проде)
         await event.message.answer(text="✅ Вопрос добавлен в очередь на рассмотрение.")
         return
 
@@ -363,26 +374,9 @@ async def echo(event: MessageCreated) -> None:
             await university.menuSelectWorker(event, user)
         return
 
-    # 3. Незнакомый — стартовое меню
+    # 4. Незнакомый — стартовое меню
     await show_start_menu(event)
 
-
-# ============================================================
-# Обработчик текстовых сообщений (GigaChat)
-# ============================================================
-
-# @dp.message()
-# async def handle_message(event: MessageCreated):
-#     # Инициализируем клиент GigaChat с вашим ключом из .env
-#     with GigaChat(credentials=GIGACHAT_KEY, verify_ssl_certs=False) as giga:
-#             # Передаем текст от пользователя (message.text) в нейросеть
-#         response = giga.chat(event)
-
-#             # Получаем сгенерированный текст из ответа
-#         ai_answer = response.choices[0].message.content
-
-#     # Бот отправляет ответ нейросети обратно пользователю
-#     await event.message.answer(ai_answer)
 
 # ============================================================
 # Точка входа
