@@ -2,7 +2,7 @@ from maxapi.types import MessageCreated
 from maxapi.utils.inline_keyboard import InlineKeyboardBuilder
 from maxapi.types import CallbackButton
 
-from config import find_queries_for_worker
+from dataBase.query import find_queries_for_worker
 
 
 async def menuSelectWorker(event: MessageCreated, worker: dict) -> None:

@@ -297,10 +297,31 @@ async def start(event: MessageCreated) -> None:
 async def menu_command(event: MessageCreated) -> None:
     await show_start_menu(event)
 
+@dp.message_created(Command("log_out"))
+async def LogOut(event: MessageCreated) -> None:
+    """
+    команда для выхода из системы для залогиненного пользователя
+    нужна только для тестов интерфейса и отладки ее не будет
+    в проде или она будет запоролена
+    """
+    await show_start_menu(event)
+
+@dp.message_created(lambda m: m.message.body and m.message.body.text)
+async def Su(event: MessageCreated) -> None:
+    """
+    Некоторый арсенал команд для супер пользователя выдающийся через меню кнопок
+    - отчистить мой id из БД (например для решистрации под другой тип клиента)
+    - вывод информации о кафедре
+    - вывод информации о студентах
+    - вывод нескольких записей из БД
+    - выход из su
+    """
+
 
 # ============================================================
 # Главный обработчик текстовых сообщений
 # ============================================================
+
 
 @dp.message_created(lambda m: m.message.body and m.message.body.text)
 async def echo(event: MessageCreated) -> None:
