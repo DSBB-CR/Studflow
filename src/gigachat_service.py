@@ -34,7 +34,7 @@ def get_faq_answer(user_message: str) -> str | None:
         models_list = giga.get_models()
 
         # 2. Извлекаем название первой доступной модели из списка
-        available_model = models_list.data[0].id
+        available_model = models_list.data[0].id_
 
         # 3. Передаем правильное название прямо в payload запроса
         response = giga.chat({
