@@ -28,19 +28,26 @@ def get_faq_answer(user_message: str) -> str | None:
     )
 
     # Добавление конкретной модели
-    with GigaChat(credentials=GIGACHAT_KEY, verify_ssl_certs=False, model="GigaChat") as giga:
+    # Инициализируем клиента без жестко заданного параметра model=
+    with GigaChat(credentials=GIGACHAT_KEY, verify_ssl_certs=False) as giga:
+        # 1. Запрашиваем у API список разрешенных моделей для вашего ключа
+        models_list = giga.get_models()
+
+        # 2. Извлекаем название первой доступной модели из списка
+        available_model = models_list.data[0].id
+
+        # 3. Передаем правильное название прямо в payload запроса
         response = giga.chat({
+            "model": available_model,
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_message}
             ],
-            # Температура 0.1 делает ответы менее креативными и более точными для FAQ
             "temperature": 0.1
         })
 
         ai_response = response.choices[0].message.content.strip()
 
-        # Если модель не нашла ответ в FAQ, она вернет флаг NOT_FOUND
         if "NOT_FOUND" in ai_response.upper():
             return None
 
