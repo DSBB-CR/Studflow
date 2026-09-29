@@ -219,6 +219,9 @@ class TestEcho:
         mock_print = MagicMock()
         monkeypatch.setattr("main.print_query", mock_print)
 
+        # Мокаем GigaChat — возвращаем None (нет FAQ-ответа)
+        monkeypatch.setattr("main.get_faq_answer", lambda text: None)
+
         await main.echo(mock_event)
 
         mock_save.assert_called_once()

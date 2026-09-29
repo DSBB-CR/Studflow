@@ -306,25 +306,135 @@ async def LogOut(event: MessageCreated) -> None:
     в проде или она будет запоролена
     """
     await show_start_menu(event)
+# ============================================================
+# Суперпользователь (SU) — режим активируется командой "su"
+# ============================================================
 
-@dp.message_created(lambda m: m.message.body and m.message.body.text)
-async def Su(event: MessageCreated) -> None:
-    """
-    Некоторый арсенал команд для супер пользователя выдающийся через меню кнопок
-    - отчистить мой id из БД (например для решистрации под другой тип клиента)
-    - вывод информации о кафедре
-    - вывод информации о студентах
-    - вывод нескольких записей из БД
-    - выход из su
-    """
+# ID тех, кому разрешён вход в SU-режим.
+# Если список пустой — пускаем любого (удобно для отладки).
+SUPERUSER_IDS: set[int] = {
+    # 123456789,
+}
+
+
+def is_superuser(user_id: int) -> bool:
+    """Пускаем всех, если список пустой — иначе только указанные ID."""
+    if not SUPERUSER_IDS:
+        return True
+    return user_id in SUPERUSER_IDS
+
+
+async def su_menu(event: MessageCreated) -> None:
+    """Главное меню суперпользователя."""
+    builder = InlineKeyboardBuilder()
+    builder.row(
+        CallbackButton(text="Очистить мой ID из БД", payload="su_clear_me"),
+    )
+    builder.row(
+        CallbackButton(text="Информация о кафедре", payload="su_department"),
+    )
+    builder.row(
+        CallbackButton(text="Информация о студентах", payload="su_students"),
+    )
+    builder.row(
+        CallbackButton(text="Показать записи из БД", payload="su_dump"),
+    )
+    builder.row(
+        CallbackButton(text="Выйти из SU", payload="su_exit"),
+    )
+
+    await event.message.answer(
+        text="🔧 Режим суперпользователя.\nВыберите действие:",
+        attachments=[builder.as_markup()],
+    )
+
+
+async def su_command(event: MessageCreated, text: str) -> None:
+    """Обработка текстовых команд внутри SU-режима."""
+    user_id = event.message.sender.user_id
+
+    if text.lower() in {"exit", "выход", "su_exit"}:
+        state.exit_su(user_id)
+        await event.message.answer(text="Вы вышли из режима суперпользователя.")
+        await show_start_menu(event)
+        return
+
+    await event.message.answer(
+        text="Используйте кнопки меню или напишите 'exit' для выхода."
+    )
 
 
 # ============================================================
-# Главный обработчик текстовых сообщений
+# Callback-обработчики SU-кнопок
 # ============================================================
 
+@dp.message_callback(F.callback.payload == "su_clear_me")
+async def su_clear_me(event: MessageCallback) -> None:
+    user_id = event.user.user_id  # проверьте поле под вашу версию maxapi
+    # delete_user(user_id)          # ваша функция удаления из БД
+    state.exit_su(user_id)
+    await event.answer(
+        text="✅ Ваш ID удалён из БД. Можно регистрироваться заново.",
+        show_alert=True,
+    )
+
+
+@dp.message_callback(F.callback.payload == "su_department")
+async def su_department(event: MessageCallback) -> None:
+    # info = get_department_info()  # ваша функция
+    await event.answer(text=f"Информация о кафедре:\n{"info"}", show_alert=True)
+
+
+@dp.message_callback(F.callback.payload == "su_students")
+async def su_students(event: MessageCallback) -> None:
+    # info = get_students_info()  # ваша функция
+    await event.answer(text=f"Информация о студентах:\n{"info"}", show_alert=True)
+
+
+@dp.message_callback(F.callback.payload == "su_dump")
+async def su_dump(event: MessageCallback) -> None:
+    # records = dump_some_records()  # ваша функция
+    await event.answer(text=f"Записи из БД:\n{"records"}", show_alert=True)
+
+
+@dp.message_callback(F.callback.payload == "su_exit")
+async def su_exit(event: MessageCallback) -> None:
+    user_id = event.user.user_id
+    state.exit_su(user_id)
+    await event.answer(text="Вы вышли из режима суперпользователя.", show_alert=True)
+
+
+# ============================================================
+# Единый роутер текстовых сообщений
+# ============================================================
 
 @dp.message_created(lambda m: m.message.body and m.message.body.text)
+async def router(event: MessageCreated) -> None:
+    user_id = event.message.sender.user_id
+    text = event.message.body.text.strip()
+
+    # 1. Вход в SU
+    if text.lower() == "su":
+        if not is_superuser(user_id):
+            await event.message.answer(text="⛔ Нет доступа.")
+            return
+        state.enter_su(user_id)
+        await su_menu(event)
+        return
+
+    # 2. Уже в SU — обрабатываем только SU-команды
+    if state.is_su(user_id):
+        await su_command(event, text)
+        return
+
+    # 3. Обычная логика
+    await echo(event)
+
+
+# ============================================================
+# Основной обработчик (переименован из echo, БЕЗ декоратора!)
+# ============================================================
+
 async def echo(event: MessageCreated) -> None:
     user_id = event.message.sender.user_id
     text = event.message.body.text.strip()
@@ -345,7 +455,6 @@ async def echo(event: MessageCreated) -> None:
             await event.message.answer(text="Вопрос не найден.")
             return
 
-        # Сохраняем ответ в Mongo
         save_answer(
             id_query=id_query,
             id_stud=q["id_stud"],
@@ -353,7 +462,6 @@ async def echo(event: MessageCreated) -> None:
             response=text,
         )
 
-        # Отправляем студенту ответ
         await notify_student(q["id_stud"], q, text)
 
         state.clear_session(user_id)
@@ -368,7 +476,7 @@ async def echo(event: MessageCreated) -> None:
             state.clear_session(user_id)
             await show_start_menu(event)
             return
-
+        
         # Проверяем, есть ли шаблонный ответ
         ai_answer = get_faq_answer(text)
 
@@ -389,8 +497,11 @@ async def echo(event: MessageCreated) -> None:
         )
 
         state.clear_session(user_id)
-        print_query()  # отладочный вывод (можно убрать в проде)
-        await event.message.answer(text="✅ Вопрос добавлен в очередь на рассмотрение сотрудникам.")
+
+        print_query()
+        await event.message.answer(
+            text="✅ Вопрос добавлен в очередь на рассмотрение сотрудникам."
+        )
         return
 
     # 2. Идёт регистрация?
@@ -409,7 +520,6 @@ async def echo(event: MessageCreated) -> None:
 
     # 4. Незнакомый — стартовое меню
     await show_start_menu(event)
-
 
 # ============================================================
 # Точка входа
