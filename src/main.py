@@ -5,6 +5,7 @@ from pathlib import Path
 
 # dotenv — на случай, если config ещё не загрузил
 from dotenv import load_dotenv
+
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 # maxapi import
@@ -12,7 +13,6 @@ from maxapi import Bot, F
 from maxapi.types import MessageCreated, Command, MessageCallback
 from maxapi.types import CallbackButton
 from maxapi.utils.inline_keyboard import InlineKeyboardBuilder
-from gigachat_service import get_faq_answer
 
 # local import func and constants
 from bot import dp
@@ -38,7 +38,7 @@ from dataBase.query import (
 # local import file
 import student
 import university
-
+from gigachat_service import get_faq_answer
 
 logging.basicConfig(level=logging.INFO)
 
@@ -230,6 +230,44 @@ async def cancelQuery_command(event: MessageCreated):
         await event.message.answer(text="Нечего отменять.")
 
 
+# -------- Оценка ответа GigaChat --------
+@dp.message_callback(F.callback.payload == "ai_satisfied")
+async def handle_ai_satisfied(event: MessageCallback):
+    user_id = event.callback.user.user_id
+    session = state.get_session(user_id)
+
+    if session and session.get("mode") == "evaluating_ai":
+        state.clear_session(user_id)
+        await event.message.answer(text="Рады были помочь! Если появятся еще вопросы, обращайтесь.")
+    else:
+        await event.message.answer(text="Действие устарело.")
+
+
+@dp.message_callback(F.callback.payload == "ai_forward")
+async def handle_ai_forward(event: MessageCallback):
+    user_id = event.callback.user.user_id
+    session = state.get_session(user_id)
+
+    if session and session.get("mode") == "evaluating_ai":
+        id_ask = session.get("id_ask")
+        text = session.get("last_question")
+        department = session.get("depart")
+
+        # Сохраняем вопрос в базу данных к живым сотрудникам
+        save_query(
+            id_query=id_ask,
+            id_stud=user_id,
+            department=department,
+            query=text,
+        )
+
+        state.clear_session(user_id)
+        print_query()
+        await event.message.answer(text="✅ Ваш вопрос перенаправлен. Ожидайте ответа от сотрудника деканата.")
+    else:
+        await event.message.answer(text="Действие устарело.")
+
+
 # ============================================================
 # Логика регистрации
 # ============================================================
@@ -298,6 +336,7 @@ async def start(event: MessageCreated) -> None:
 async def menu_command(event: MessageCreated) -> None:
     await show_start_menu(event)
 
+
 @dp.message_created(Command("log_out"))
 async def LogOut(event: MessageCreated) -> None:
     """
@@ -306,6 +345,7 @@ async def LogOut(event: MessageCreated) -> None:
     в проде или она будет запоролена
     """
     await show_start_menu(event)
+
 
 @dp.message_created(lambda m: m.message.body and m.message.body.text)
 async def Su(event: MessageCreated) -> None:
@@ -322,7 +362,6 @@ async def Su(event: MessageCreated) -> None:
 # ============================================================
 # Главный обработчик текстовых сообщений
 # ============================================================
-
 
 @dp.message_created(lambda m: m.message.body and m.message.body.text)
 async def echo(event: MessageCreated) -> None:
@@ -360,38 +399,50 @@ async def echo(event: MessageCreated) -> None:
         await event.message.answer(text="✅ Ответ отправлен студенту.")
         return
 
-        # 1. Студент задаёт вопрос
-        session = state.get_session(user_id)
-        if session and session.get("mode") == "asking":
-            stud = find_user(user_id)
-            if stud is None:
-                state.clear_session(user_id)
-                await show_start_menu(event)
-                return
+    # 1. Студент задаёт вопрос
+    session = state.get_session(user_id)
+    if session and session.get("mode") == "asking":
+        stud = find_user(user_id)
+        if stud is None:
+            state.clear_session(user_id)
+            await show_start_menu(event)
+            return
 
-            # Проверяем, есть ли шаблонный ответ
-            ai_answer = get_faq_answer(text)
+        # Проверяем, есть ли шаблонный ответ
+        ai_answer = get_faq_answer(text)
 
-            if ai_answer:
-                # Если нейросеть нашла ответ, выдаем его и завершаем сессию
-                state.clear_session(user_id)
-                await event.message.answer(text=f"Быстрый ответ:\n\n{ai_answer}")
-                return
-            # -------------------------------
+        if ai_answer:
+            # Сохраняем вопрос и меняем статус сессии ожидания ответа
+            session["mode"] = "evaluating_ai"
+            session["last_question"] = text
 
-            # Если ответа нет в FAQ, продолжаем стандартную логику и отправляем живым работникам
-            id_ask = session.get("id_ask")
-            save_query(
-                id_query=id_ask,
-                id_stud=user_id,
-                department=session.get("depart"),
-                query=text,
+            # Создаем кнопки
+            builder = InlineKeyboardBuilder()
+            builder.row(
+                CallbackButton(text="✅ Да, спасибо!", payload="ai_satisfied"),
+                CallbackButton(text="❌ Нет, нужен сотрудник", payload="ai_forward")
             )
 
-            state.clear_session(user_id)
-            print_query()  # отладочный вывод (можно убрать в проде)
-            await event.message.answer(text="✅ Вопрос добавлен в очередь на рассмотрение сотрудникам.")
+            await event.message.answer(
+                text=f"🤖 Быстрый ответ:\n\n{ai_answer}\n\nВы удовлетворены ответом?",
+                attachments=[builder.as_markup()]
+            )
             return
+        # -------------------------------
+
+        # Если ответа нет в FAQ, продолжаем стандартную логику и отправляем живым работникам
+        id_ask = session.get("id_ask")
+        save_query(
+            id_query=id_ask,
+            id_stud=user_id,
+            department=session.get("depart"),
+            query=text,
+        )
+
+        state.clear_session(user_id)
+        print_query()  # отладочный вывод (можно убрать в проде)
+        await event.message.answer(text="✅ Вопрос добавлен в очередь на рассмотрение сотрудникам.")
+        return
 
     # 2. Идёт регистрация?
     if state.registration_open:

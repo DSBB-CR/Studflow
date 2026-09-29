@@ -3,15 +3,12 @@
 from gigachat import GigaChat
 from config import GIGACHAT_KEY, test_query
 
-
 def format_faq() -> str:
     """Формирует текстовый контекст из словаря test_query"""
     context = ""
-    # Читаем вопросы и ответы из заглушки
     for item in test_query:
         context += f"Вопрос: {item['question']}\nОтвет: {item['answer']}\n\n"
     return context
-
 
 def get_faq_answer(user_message: str) -> str | None:
     """
@@ -27,16 +24,10 @@ def get_faq_answer(user_message: str) -> str | None:
         f"База знаний:\n{format_faq()}"
     )
 
-    # Добавление конкретной модели
-    # Инициализируем клиента без жестко заданного параметра model=
     with GigaChat(credentials=GIGACHAT_KEY, verify_ssl_certs=False) as giga:
-        # 1. Запрашиваем у API список разрешенных моделей для вашего ключа
         models_list = giga.get_models()
-
-        # 2. Извлекаем название первой доступной модели из списка
         available_model = models_list.data[0].id_
 
-        # 3. Передаем правильное название прямо в payload запроса
         response = giga.chat({
             "model": available_model,
             "messages": [
