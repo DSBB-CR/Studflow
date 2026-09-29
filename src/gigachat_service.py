@@ -27,7 +27,8 @@ def get_faq_answer(user_message: str) -> str | None:
         f"База знаний:\n{format_faq()}"
     )
 
-    with GigaChat(credentials=GIGACHAT_KEY, verify_ssl_certs=False) as giga:
+    # Добавление конкретной модели
+    with GigaChat(credentials=GIGACHAT_KEY, verify_ssl_certs=False, model="GigaChat") as giga:
         response = giga.chat({
             "messages": [
                 {"role": "system", "content": system_prompt},
