@@ -307,16 +307,16 @@ async def LogOut(event: MessageCreated) -> None:
     """
     await show_start_menu(event)
 
-@dp.message_created(lambda m: m.message.body and m.message.body.text)
-async def Su(event: MessageCreated) -> None:
-    """
-    Некоторый арсенал команд для супер пользователя выдающийся через меню кнопок
-    - отчистить мой id из БД (например для решистрации под другой тип клиента)
-    - вывод информации о кафедре
-    - вывод информации о студентах
-    - вывод нескольких записей из БД
-    - выход из su
-    """
+# @dp.message_created(lambda m: m.message.body and m.message.body.text)
+# async def Su(event: MessageCreated) -> None:
+#     """
+#     Некоторый арсенал команд для супер пользователя выдающийся через меню кнопок
+#     - отчистить мой id из БД (например для решистрации под другой тип клиента)
+#     - вывод информации о кафедре
+#     - вывод информации о студентах
+#     - вывод нескольких записей из БД
+#     - выход из su
+#     """
 
 
 # ============================================================
@@ -360,38 +360,38 @@ async def echo(event: MessageCreated) -> None:
         await event.message.answer(text="✅ Ответ отправлен студенту.")
         return
 
-        # 1. Студент задаёт вопрос
-        session = state.get_session(user_id)
-        if session and session.get("mode") == "asking":
-            stud = find_user(user_id)
-            if stud is None:
-                state.clear_session(user_id)
-                await show_start_menu(event)
-                return
-
-            # Проверяем, есть ли шаблонный ответ
-            ai_answer = get_faq_answer(text)
-
-            if ai_answer:
-                # Если нейросеть нашла ответ, выдаем его и завершаем сессию
-                state.clear_session(user_id)
-                await event.message.answer(text=f"Быстрый ответ:\n\n{ai_answer}")
-                return
-            # -------------------------------
-
-            # Если ответа нет в FAQ, продолжаем стандартную логику и отправляем живым работникам
-            id_ask = session.get("id_ask")
-            save_query(
-                id_query=id_ask,
-                id_stud=user_id,
-                department=session.get("depart"),
-                query=text,
-            )
-
+    # 1. Студент задаёт вопрос
+    session = state.get_session(user_id)
+    if session and session.get("mode") == "asking":
+        stud = find_user(user_id)
+        if stud is None:
             state.clear_session(user_id)
-            print_query()  # отладочный вывод (можно убрать в проде)
-            await event.message.answer(text="✅ Вопрос добавлен в очередь на рассмотрение сотрудникам.")
+            await show_start_menu(event)
             return
+
+        # Проверяем, есть ли шаблонный ответ
+        ai_answer = get_faq_answer(text)
+
+        if ai_answer:
+            # Если нейросеть нашла ответ, выдаем его и завершаем сессию
+            state.clear_session(user_id)
+            await event.message.answer(text=f"Быстрый ответ:\n\n{ai_answer}")
+            return
+        # -------------------------------
+
+        # Если ответа нет в FAQ, продолжаем стандартную логику и отправляем живым работникам
+        id_ask = session.get("id_ask")
+        save_query(
+            id_query=id_ask,
+            id_stud=user_id,
+            department=session.get("depart"),
+            query=text,
+        )
+
+        state.clear_session(user_id)
+        print_query()  # отладочный вывод (можно убрать в проде)
+        await event.message.answer(text="✅ Вопрос добавлен в очередь на рассмотрение сотрудникам.")
+        return
 
     # 2. Идёт регистрация?
     if state.registration_open:

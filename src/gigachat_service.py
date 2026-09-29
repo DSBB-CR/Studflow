@@ -26,7 +26,7 @@ def get_faq_answer(user_message: str) -> str | None:
         "Если в базе нет подходящего ответа, верни ровно одно слово: NOT_FOUND.\n\n"
         f"База знаний:\n{format_faq()}"
     )
-
+    print("Hello")
     # Добавление конкретной модели
     # Инициализируем клиента без жестко заданного параметра model=
     with GigaChat(credentials=GIGACHAT_KEY, verify_ssl_certs=False) as giga:
