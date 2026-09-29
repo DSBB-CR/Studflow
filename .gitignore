@@ -2,4 +2,9 @@
 .idea/
 __pycache__/
 dataBase/__pycache__/
+*.pyc__pycache__/
 *.pyc
+.coverage
+__pycache__/
+*.pyc
+.coverage

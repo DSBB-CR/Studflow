@@ -271,7 +271,25 @@ def save_answer(id_query: int, id_stud: int, id_worker: int, response: str) -> N
             "updated_at": datetime.utcnow(),
         }},
     )
+# ============================================================
+# Удаление студента (без затрагивания связанных данных)
+# ============================================================
 
+def delete_user(user_id: int) -> None:
+    """Удаляет профиль из коллекции users.
+    Связанные данные (обращения в queries и т.п.) не трогает."""
+    if user_id is None:
+        return
+    users_col.delete_one({"user_id": int(user_id)})
+
+
+def delete_user_by_chat_id(chat_id: int) -> None:
+    """То же самое, но поиск по chat_id."""
+    if chat_id is None:
+        return
+    doc = users_col.find_one({"chat_id": int(chat_id)})
+    if doc:
+        users_col.delete_one({"_id": doc["_id"]})
 
 # ============================================================
 # Утилита для отладки (аналог print_query)
