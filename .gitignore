@@ -6,12 +6,3 @@ dataBase/__pycache__/
 *.pyc
 .coverage
 __pycache__/
-<<<<<<< HEAD
-*.pyc
-.coverage
-=======
-*.py[cod]
-*.egg-info/
-.venv/
-venv/
->>>>>>> 4e28947 (deleted next files)
