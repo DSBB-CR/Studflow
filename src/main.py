@@ -33,6 +33,7 @@ from dataBase.query import (
     save_query,
     next_query_id,
     print_query,
+    delete_user,
 )
 
 # local import file
@@ -370,30 +371,29 @@ async def su_command(event: MessageCreated, text: str) -> None:
 
 @dp.message_callback(F.callback.payload == "su_clear_me")
 async def su_clear_me(event: MessageCallback) -> None:
-    user_id = event.user.user_id  # проверьте поле под вашу версию maxapi
-    # delete_user(user_id)          # ваша функция удаления из БД
+    user_id = event.callback.user.user_id
+    delete_user(user_id)         
     state.exit_su(user_id)
-    await event.answer(
-        text="✅ Ваш ID удалён из БД. Можно регистрироваться заново.",
-        show_alert=True,
+    await event.message.answer(
+        text=f"✅ Ваш ID {user_id}удалён из БД. Можно регистрироваться заново.",
     )
 
 
 @dp.message_callback(F.callback.payload == "su_department")
 async def su_department(event: MessageCallback) -> None:
-    # info = get_department_info()  # ваша функция
+    # info = get_department_info()
     await event.answer(text=f"Информация о кафедре:\n{"info"}", show_alert=True)
 
 
 @dp.message_callback(F.callback.payload == "su_students")
 async def su_students(event: MessageCallback) -> None:
-    # info = get_students_info()  # ваша функция
+    # info = get_students_info()
     await event.answer(text=f"Информация о студентах:\n{"info"}", show_alert=True)
 
 
 @dp.message_callback(F.callback.payload == "su_dump")
 async def su_dump(event: MessageCallback) -> None:
-    # records = dump_some_records()  # ваша функция
+    # records = dump_some_records()
     await event.answer(text=f"Записи из БД:\n{"records"}", show_alert=True)
 
 

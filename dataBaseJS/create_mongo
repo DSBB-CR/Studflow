@@ -1,6 +1,5 @@
 /**
  * init_studflow_db.js
- * Скрипт создания базы данных MongoDB для Studflow-бота (MAX/Telegram).
  *
  * Запуск:
  *   mongosh "mongodb://localhost:27017" init_studflow_db.js
@@ -48,7 +47,7 @@ db.createCollection("universities", {
 db.universities.createIndex({ short_name: 1 }, { unique: true, name: "uniq_short_name" });
 db.universities.createIndex({ aliases: 1 }, { name: "idx_aliases" });
 
-// 2. users — студенты и сотрудники (единая коллекция с дискриминатором role)
+
 db.users.drop();
 db.createCollection("users", {
   validator: {
@@ -99,14 +98,14 @@ db.users.createIndex({ role: 1, university: 1 }, { name: "idx_role_university" }
 
 print("✔ users создана");
 
-// 3. counters — генератор коротких числовых id для обращений
+
 db.counters.drop();
 db.createCollection("counters");
 db.counters.insertOne({ _id: "query_id", seq: 1000 });
 
 print("✔ counters создана (стартовый seq=1000)");
 
-// 4. queries — обращения студентов к кафедрам
+
 db.queries.drop();
 db.createCollection("queries", {
   validator: {
@@ -158,7 +157,7 @@ db.queries.createIndex(
 
 print("✔ queries создана");
 
-// 5. dialog_states — состояние FSM-диалога по каждому чату
+
 db.dialog_states.drop();
 db.createCollection("dialog_states", {
   validator: {
@@ -219,12 +218,12 @@ db.createCollection("event_log", {
 });
 
 db.event_log.createIndex({ chat_id: 1, created_at: -1 }, { name: "idx_chat_time" });
-// TTL: логи живут 2 суток — достаточно для отладки на хакатоне
+
 db.event_log.createIndex(
   { created_at: 1 },
   { expireAfterSeconds: 172800, name: "ttl_created_at" }
 );
 
-print("✔ event_log создана (TTL 48ч)");
+print("event_log создана (TTL 48ч)");
 
 print(`Коллекции созданы: universities, users, counters, queries, dialog_states, event_log`);
