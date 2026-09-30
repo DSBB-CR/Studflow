@@ -337,13 +337,13 @@ async def su_menu(event: MessageCreated) -> None:
         CallbackButton(text="Очистить мой ID из БД", payload="su_clear_me"),
     )
     builder.row(
-        CallbackButton(text="Информация о кафедре", payload="su_universities"),
+        CallbackButton(text="Информация о вузах", payload="su_universities"),
     )
     builder.row(
         CallbackButton(text="Информация о студентах", payload="su_students"),
     )
     builder.row(
-        CallbackButton(text="Показать записи из БД", payload="su_dump"),
+        CallbackButton(text="Показать заданные вопросы из БД", payload="su_dump"),
     )
     builder.row(
         CallbackButton(text="Выйти из SU", payload="su_exit"),
