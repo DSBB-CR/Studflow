@@ -1,0 +1,27 @@
+services:
+  bot:
+    build: .
+    container_name: max_bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      - mongo
+    networks:
+      - bot_network
+
+  mongo:
+    image: mongo:7
+    container_name: max_mongo
+    restart: unless-stopped
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - bot_network
+
+volumes:
+  mongo_data:
+
+networks:
+  bot_network:
+    driver: bridge
