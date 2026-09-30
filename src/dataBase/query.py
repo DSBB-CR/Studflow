@@ -13,7 +13,6 @@ from dataBase.mongo_client import (
 # ============================================================
 
 def next_query_id() -> int:
-    """Атомарно увеличивает счётчик и возвращает новое значение."""
     doc = counters_col.find_one_and_update(
         {"_id": "query_id"},
         {"$inc": {"seq": 1}},
@@ -51,7 +50,7 @@ def find_user(user_id) -> dict | None:
         return None
 
     out = {
-        "status": doc["role"],          # "student" / "staff" -> приводим к "student"/"worker"
+        "status": doc["role"],          
         "id": doc["user_id"],
         "ВУЗ": doc["university"],
         "Фамилия": doc.get("last_name", ""),
@@ -59,7 +58,7 @@ def find_user(user_id) -> dict | None:
         "Отчество": doc.get("patronymic") or "",
     }
 
-    # ВАЖНО: в схеме Mongo роль называется "staff", а бот ждёт "worker".
+    
     if out["status"] == "staff":
         out["status"] = "worker"
 
@@ -217,6 +216,101 @@ def find_queries_for_student(user_id: int) -> list:
         "status": "answered",
     })
     return [_query_to_bot_format(d) for d in cursor]
+
+
+# ============================================================
+# SU: информация о вузах
+# ============================================================
+
+def get_universities_info() -> str:
+    """Возвращает список ВУЗов с количеством студентов и работников."""
+    pipeline = [
+        {
+            "$group": {
+                "_id": "$university",
+                "total": {"$sum": 1},
+                "students": {
+                    "$sum": {"$cond": [{"$eq": ["$status", "student"]}, 1, 0]}
+                },
+                "workers": {
+                    "$sum": {"$cond": [{"$eq": ["$status", "worker"]}, 1, 0]}
+                },
+            }
+        },
+        {"$sort": {"_id": 1}},
+    ]
+
+    rows = list(users_col.aggregate(pipeline))
+    if not rows:
+        return "Пока нет зарегистрированных пользователей."
+
+    lines = []
+    for r in rows:
+        uni = r["_id"] or "(без ВУЗа)"
+        lines.append(
+            f"• {uni}: всего {r['total']} "
+            f"(студентов {r['students']}, работников {r['workers']})"
+        )
+    return "\n".join(lines)
+
+
+# ============================================================
+# SU: информация о студентах
+# ============================================================
+
+def get_students_info(limit: int = 30) -> str:
+    """Список студентов: ФИО, ВУЗ, кафедра."""
+    cursor = users_col.find({"status": "student"}).limit(limit)
+    rows = list(cursor)
+    if not rows:
+        return "Студентов в БД нет."
+
+    lines = []
+    for s in rows:
+        fio = " ".join(filter(None, [
+            s.get("last_name", ""),
+            s.get("first_name", ""),
+            s.get("patronymic", ""),
+        ])) or "(без имени)"
+        uni = s.get("university", "") or "—"
+        dep = s.get("department", "") or "—"
+        uid = s.get("user_id", "?")
+        lines.append(f"• {fio} | {uni} | {dep} | id={uid}")
+
+    total = users_col.count_documents({"status": "student"})
+    header = f"Студентов всего: {total}. Показаны первые {len(rows)}:\n"
+    return header + "\n".join(lines)
+
+
+# ============================================================
+# SU: дамп вопросов из БД
+# ============================================================
+
+def dump_queries(limit: int = 20) -> str:
+    """Последние вопросы с кратким статусом."""
+    cursor = (
+        queries_col.find()
+        .sort("created_at", -1)
+        .limit(limit)
+    )
+    rows = list(cursor)
+    if not rows:
+        return "Обращений в БД нет."
+
+    lines = []
+    for d in rows:
+        f = _query_to_bot_format(d)
+        status = f["status"]
+        mark = "✅" if status == "answered" else "⏳"
+        q = (f["Вопрос"] or "")[:80]
+        lines.append(
+            f"{mark} #{f['id_query']} | {f['Студент'] or '—'} | "
+            f"{f['Кафедра'] or '—'} | {q}"
+        )
+
+    total = queries_col.count_documents({})
+    header = f"Всего обращений: {total}. Последние {len(rows)}:\n"
+    return header + "\n".join(lines)
 
 
 def save_query(id_query: int, id_stud: int, department: str, query: str) -> None:

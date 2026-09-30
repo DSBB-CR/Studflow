@@ -50,5 +50,27 @@ class BotState:
         if s is not None and s.get("mode") == "su":
             self.user_sessions.pop(user_id, None)
 
+    # --- оценка ответа бота ---
+    def start_rating(
+        self,
+        user_id: int,
+        id_ask: int,
+        ai_answer: str,
+        question: str,
+        department: str,
+    ) -> None:
+        '''Переводим сессию в режим оценки ответа нейросети'''
+        self.user_sessions[user_id] = {
+            "mode": "rating",
+            "id_ask": id_ask,
+            "ai_answer": ai_answer,
+            "question": question,
+            "depart": department,
+        }
+
+    def is_rating(self, user_id: int) -> bool:
+        s = self.user_sessions.get(user_id)
+        return s is not None and s.get("mode") == "rating"
+
 
 state = BotState()

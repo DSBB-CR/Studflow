@@ -5,7 +5,7 @@ from pathlib import Path
 
 # dotenv — на случай, если config ещё не загрузил
 from dotenv import load_dotenv
-load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+load_dotenv(Path(__file__).resolve().parent.parent / '.env.example')
 
 # maxapi import
 from maxapi import Bot, F
@@ -34,6 +34,11 @@ from dataBase.query import (
     next_query_id,
     print_query,
     delete_user,
+
+    # для super user
+    get_students_info,
+    dump_queries,
+    get_universities_info,
 )
 
 # local import file
@@ -332,7 +337,7 @@ async def su_menu(event: MessageCreated) -> None:
         CallbackButton(text="Очистить мой ID из БД", payload="su_clear_me"),
     )
     builder.row(
-        CallbackButton(text="Информация о кафедре", payload="su_department"),
+        CallbackButton(text="Информация о кафедре", payload="su_universities"),
     )
     builder.row(
         CallbackButton(text="Информация о студентах", payload="su_students"),
@@ -375,33 +380,33 @@ async def su_clear_me(event: MessageCallback) -> None:
     delete_user(user_id)         
     state.exit_su(user_id)
     await event.message.answer(
-        text=f"✅ Ваш ID {user_id}удалён из БД. Можно регистрироваться заново.",
+        text=f"✅ Ваш ID {user_id} удалён из БД. Можно регистрироваться заново.",
     )
 
 
-@dp.message_callback(F.callback.payload == "su_department")
+@dp.message_callback(F.callback.payload == "su_universities")
 async def su_department(event: MessageCallback) -> None:
-    # info = get_department_info()
-    await event.answer(text=f"Информация о кафедре:\n{"info"}", show_alert=True)
+    info = get_universities_info()
+    await event.message.answer(text=f"Информация о зарегестрированных вузах:\n{info}")
 
 
 @dp.message_callback(F.callback.payload == "su_students")
 async def su_students(event: MessageCallback) -> None:
-    # info = get_students_info()
-    await event.answer(text=f"Информация о студентах:\n{"info"}", show_alert=True)
+    info = get_students_info()
+    await event.message.answer(text=f"Информация о студентах:\n{info}")
 
 
 @dp.message_callback(F.callback.payload == "su_dump")
 async def su_dump(event: MessageCallback) -> None:
-    # records = dump_some_records()
-    await event.answer(text=f"Записи из БД:\n{"records"}", show_alert=True)
+    records = dump_queries()
+    await event.message.answer(text=f"Записи вопров из БД:\n{records}")
 
 
 @dp.message_callback(F.callback.payload == "su_exit")
 async def su_exit(event: MessageCallback) -> None:
-    user_id = event.user.user_id
+    user_id = event.callback.user.user_id
     state.exit_su(user_id)
-    await event.answer(text="Вы вышли из режима суперпользователя.", show_alert=True)
+    await event.message.answer(text="Вы вышли из режима суперпользователя.")
 
 
 # ============================================================
@@ -431,6 +436,79 @@ async def router(event: MessageCreated) -> None:
     await echo(event)
 
 
+def save_rating(id_ask: int, id_stud: int, question: str, ai_answer: str, rating: int) -> None:
+    """
+    Сохраняет оценку ответа нейросети.
+    rating = 1 (понравился) или 0 (не понравился).
+    """
+    # Пример для Mongo:
+    # db.ratings.insert_one({
+    #     "id_ask": id_ask,
+    #     "id_stud": id_stud,
+    #     "question": question,
+    #     "ai_answer": ai_answer,
+    #     "rating": rating,
+    #     "ts": datetime.utcnow(),
+    # })
+    print(f"[RATING] user={id_stud} ask={id_ask} rating={rating}")
+
+
+
+@dp.message_callback(F.callback.payload == "rate_yes")
+async def rate_yes(event: MessageCallback) -> None:
+    user_id = event.callback.user.user_id
+    session = state.get_session(user_id)
+
+    if not session or session.get("mode") != "rating":
+        await event.message.answer(text="Оценка уже неактуальна.", show_alert=True)
+        return
+
+    # Сохраняем положительную оценку в БД
+    save_rating(
+        id_ask=session.get("id_ask"),
+        id_stud=user_id,
+        question=session.get("question"),
+        ai_answer=session.get("ai_answer"),
+        rating=1,
+    )
+
+    state.clear_session(user_id)
+    await event.message.answer(text="Спасибо за отзыв!")
+
+
+@dp.message_callback(F.callback.payload == "rate_no")
+async def rate_no(event: MessageCallback) -> None:
+    user_id = event.callback.user.user_id
+    session = state.get_session(user_id)
+
+    if not session or session.get("mode") != "rating":
+        await event.message.answer(text="Оценка уже неактуальна.", show_alert=True)
+        return
+
+    # Сохраняем отрицательную оценку
+    save_rating(
+        id_ask=session.get("id_ask"),
+        id_stud=user_id,
+        question=session.get("question"),
+        ai_answer=session.get("ai_answer"),
+        rating=0,
+    )
+
+    # Отправляем вопрос живым работникам
+    save_query(
+        id_query=session.get("id_ask"),
+        id_stud=user_id,
+        department=session.get("depart"),
+        query=session.get("question"),
+    )
+
+    state.clear_session(user_id)
+
+    await event.message.answer(
+        text="Жаль! Мы передали ваш вопрос живому сотруднику.",
+    )
+
+
 # ============================================================
 # Основной обработчик (переименован из echo, БЕЗ декоратора!)
 # ============================================================
@@ -438,6 +516,13 @@ async def router(event: MessageCreated) -> None:
 async def echo(event: MessageCreated) -> None:
     user_id = event.message.sender.user_id
     text = event.message.body.text.strip()
+
+    # 0.0 Пользователь в режиме оценки ответа — просим нажать кнопку
+    if state.is_rating(user_id):
+        await event.message.answer(
+            text="Пожалуйста, оцените предыдущий ответ кнопками 👍 / 👎."
+        )
+        return
 
     # 0. Пользователь отвечает на вопрос студента
     session = state.get_session(user_id)
@@ -468,7 +553,7 @@ async def echo(event: MessageCreated) -> None:
         await event.message.answer(text="✅ Ответ отправлен студенту.")
         return
 
-    # 1. Студент задаёт вопрос
+        # 1. Студент задаёт вопрос
     session = state.get_session(user_id)
     if session and session.get("mode") == "asking":
         stud = find_user(user_id)
@@ -477,12 +562,42 @@ async def echo(event: MessageCreated) -> None:
             await show_start_menu(event)
             return
 
-        ai_answer = get_faq_answer(text)
+        # Проверяем, есть ли шаблонный ответ
+        ai_answer = None
+        try:
+            ai_answer = get_faq_answer(text)
+        except Exception as e:
+            print(f"[FAQ] Ошибка получения ответа: {e!r}")
+            ai_answer = None
 
         if ai_answer:
-            state.clear_session(user_id)
+            # Переводим сессию в режим оценки и показываем кнопки
+            id_ask = session.get("id_ask")
+            department = session.get("depart")
+
+            state.start_rating(
+                user_id=user_id,
+                id_ask=id_ask,
+                ai_answer=ai_answer,
+                question=text,
+                department=department,
+            )
+
             await event.message.answer(text=f"Быстрый ответ:\n\n{ai_answer}")
+
+            # Кнопки оценки
+            rating_builder = InlineKeyboardBuilder()
+            rating_builder.row(
+                CallbackButton(text="👍 Да", payload="rate_yes"),
+                CallbackButton(text="👎 Нет", payload="rate_no"),
+            )
+            await event.message.answer(
+                text="Понравился ли вам ответ?",
+                attachments=[rating_builder.as_markup()],
+            )
             return
+
+        # Если ответа нет в FAQ — отправляем живым работникам
 
         id_ask = session.get("id_ask")
         save_query(

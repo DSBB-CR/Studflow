@@ -1,4 +1,6 @@
-maxapi
-python-dotenv
-gigachat
-pymongo
+gigachat==0.2.3
+maxapi==1.2.2
+mongomock==4.3.0
+pymongo==4.18.2
+pytest==9.1.1
+python-dotenv==1.2.3

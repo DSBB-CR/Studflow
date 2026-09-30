@@ -3,7 +3,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 
-ENV_PATH = Path(__file__).resolve().parent.parent / ".env"
+ENV_PATH = Path(__file__).resolve().parent.parent / "'.env.example'"
 load_dotenv(ENV_PATH)
 
 MAX_TOKEN = os.getenv("MAX_TOKEN")
