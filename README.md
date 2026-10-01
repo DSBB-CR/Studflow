@@ -44,9 +44,9 @@
 Перед запуском создайте файл `.env` в корне проекта со следующими переменными:
 
 ```
-MAX_TOKEN=f9LHodD0cOK4ZSbZ9J5-4YnzuXdjDd_R9p_GAishdshZdXGoI4c057zpKm-HmuH-76QzMInxn1J3q8Ch_IMi
-GIGACHAT_KEY=MDFhMGNkNDgtYmZiNi03MjVmLTg4N2QtZDhlYjY4MDk2ZTM0OmY2NjljNTY1LWQ5OTctNDFkOC1hZjJhLTZmYThmMDkwNGZiNA==
-MONGO_URI=mongodb://localhost:27017/studflow
+MAX_TOKEN=tok
+GIGACHAT_KEY=key
+MONGO_URI=mongodb://
 
 ```
 
